@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      pnpm:
-        specifier: ^9.3.0
-        version: 9.3.0
       sqlite3:
         specifier: ^5.1.7
         version: 5.1.7
@@ -347,11 +344,6 @@ packages:
   path-is-absolute@1.0.1:
     resolution: {integrity: sha512-AVbw3UJ2e9bq64vSaS9Am0fje1Pa8pbGqTTsmXfaIiMpnr5DlDhfJOuLj9Sf95ZPVDAUerDfEk88MPmPe7UCQg==}
     engines: {node: '>=0.10.0'}
-
-  pnpm@9.3.0:
-    resolution: {integrity: sha512-7nuT4MK9EUCcZCT5K4ZvMdPqG+9fvkfTx1AM3DyWaIM9LlVoGtZt9bZAxh+p3CXVRu+lTXbX+L9UsTYUrCk2MQ==}
-    engines: {node: '>=18.12'}
-    hasBin: true
 
   prebuild-install@7.1.2:
     resolution: {integrity: sha512-UnNke3IQb6sgarcZIDU3gbMeTp/9SSU1DAIkil7PrqG1vZlBtY5msYccSKSHDqa3hNg436IXK+SNImReuA1wEQ==}
@@ -898,8 +890,6 @@ snapshots:
 
   path-is-absolute@1.0.1:
     optional: true
-
-  pnpm@9.3.0: {}
 
   prebuild-install@7.1.2:
     dependencies:
