@@ -2,11 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose()
 
-let counter : number = 0;
+// let counter : number = 0;
 let ayaTextArray : string[] = [];
-let ayaNumber : (string | number) = '';
+// let ayaNumber : (string | number) = '';
 let ayaNumberArray : (string | number)[] = [];
-let surahNumber : (string | number) = ''
+// let surahNumber : (string | number) = ''
 let surahNumberArray : (string | number)[] = [];
 let translateEnYusufali : string[]  = []
 let translateFaFooladvand : string[]  = []
@@ -22,6 +22,13 @@ const rawTextAddressArray : string[] = ['./raw/quran_text/quran-simple.txt',
 let isDatabaseFolderCreated : boolean = false
 //check if database file has been created
 let isDatabaseFileCreated : boolean = false
+
+// connect to database
+const database  = new sqlite3.Database('./database/quran.db', sqlite3.OPEN_READWRITE, (err : any) =>{
+    if (err){
+        console.log(err.message)
+    }
+})
 
 function createDatabaseDirectory() {
     // create a sqlite database
@@ -50,7 +57,7 @@ function createDatabaseFile() {
     }
 }
 
-function createDatabase(createDatabaseDirectory : any, createDatabaseFile : any){
+function createDatabase(){
     //check if database directory has been created
     isDatabaseFolderCreated = fs.existsSync(path.join(__dirname, 'database'))
 
@@ -62,6 +69,9 @@ function createDatabase(createDatabaseDirectory : any, createDatabaseFile : any)
     
     // create .db file if it doesn't exist
     createDatabaseFile()
+
+    // execute quran table
+    createQuranTable()
 }
 
 // create quran table
@@ -70,10 +80,7 @@ function createQuranTable(){
       (id INTEGER NOT NULL PRIMARY KEY, 
       surah_number,
       aya_number,
-      text,
-      translation_fa_makarem,
-      translation_fa_fooladvand,
-      translation_en_yusufali)`
+      text)`
     database.run(sql)
 }
 
@@ -84,61 +91,26 @@ function ayaProcess(){
             let rawText = fs.readFileSync(rawTextAddressArray[i], 'utf-8');
 
             // get every line (aya)
-            rawText.split(/\r?\n/).forEach((line : any) =>  {    
-                // if (rawTextAddressArray[i] === './raw/quran_text/quran-simple.txt'){
-                    // this loop is for getting aya number and sura number
-                    for ( let i : any = 0 ; i < line.length ; i++ ) {
-                        if(line[i] === '|'){
-                            ++counter;
-                
-                            // remove '|' from aya text
-                            line = line.replace(line[i], '')
-                        }
-                        if(counter === 0 && line[i].match(/\d+/)){
-                            surahNumber += line[i]
-                        }
-                        if(counter === 1 && line[i].match(/\d+/)){     
-                            if(surahNumber){
-                                surahNumberArray.push(surahNumber)
-                            }            
-                            surahNumber = ''
-                            ayaNumber += line[i]
-                        }
-                        if(counter === 2){
-                            counter = 0
-                            // remove '|' from aya text
-                            ayaNumberArray.push(ayaNumber)
-                            ayaNumber = ''
-                        }
-                        
-                    }   // end of for loop
-                
-                    // v remove numbers from aya text v
-                    let str : any = line;
-                    let numbers : any = "0123456789";
-                    function check(x : any) {
-                        return numbers.includes(x) ? true : false;
-                    }
-                    let matches = [...str].reduce(
-                        (x : any, y : any) => (check(y) ? x + y : x),"");
-                    line = line.replace(matches, '')
-                    // ^ remove numbers from aya text ^
-                // }    
+            rawText.split(/\r?\n/).forEach((line : any) =>  {
+                let columns = line.split('|');
+                surahNumberArray.push(columns[0])
+
+                ayaNumberArray.push(columns[1])
+
                 // add each line to related array
                 switch (rawTextAddressArray[i]){
                     case './raw/quran_text/quran-simple.txt':
-                        ayaTextArray.push(line);
+                        ayaTextArray.push(columns[2]);
                         break;
                     case './raw/quran_translations/en.yusufali.txt':
-                        translateEnYusufali.push(line);                                                   
+                        translateEnYusufali.push(columns[2]);
                         break;
                     case './raw/quran_translations/fa.fooladvand.txt':
-                        translateFaFooladvand.push(line);                                                   
+                        translateFaFooladvand.push(columns[2]);
                         break;
                     case './raw/quran_translations/fa.makarem.txt':
-                        translateFaMakarem.push(line);                                                   
+                        translateFaMakarem.push(columns[2]);
                         break;
-                    
                 }
             });    //end of foeEach
         }
@@ -152,20 +124,14 @@ function addAyaToDatabase() {
                 (id, 
                 surah_number,
                 aya_number,
-                text,
-                translation_fa_makarem,
-                translation_fa_fooladvand,
-                translation_en_yusufali)
-                VALUES(?,?,?,?,?,?,?)`
+                text)
+                VALUES(?,?,?,?)`
                 database.run(sql,
                     [
                     i,
                     surahNumberArray[i],
                     ayaNumberArray[i],
-                    ayaTextArray[i],
-                    translateEnYusufali[i],
-                    translateFaFooladvand[i],
-                    translateFaMakarem[i]
+                    ayaTextArray[i]
                     ],
                     (err : any) =>{
                         if (err){
@@ -178,8 +144,7 @@ function addAyaToDatabase() {
 
 // v i get quran table row count for execute once v
 // این کار را انجام می دهم برای اینکه شرطی ایجاد شود تا عملیات های اصلی فقط یک بار انجام شود
-function getTableRowsAmount (ayaProcess : any, addAyaToDatabase : any)  {
-    // let getTableRowsAmount = () => {
+function getTableRowsAmount ()  {
         sql = 'SELECT COUNT(*) FROM quran'
         database.all(sql,[],(err : any, result : any) =>{
             if (err){
@@ -193,19 +158,9 @@ function getTableRowsAmount (ayaProcess : any, addAyaToDatabase : any)  {
         })
     }
 
-// connect to database
-const database  = new sqlite3.Database('./database/quran.db', sqlite3.OPEN_READWRITE, (err : any) =>{
-    if (err){
-        console.log(err.message)
-    }
-})
-
 // execute creating database
-createDatabase(createDatabaseDirectory, createDatabaseFile)
-
-// execute quran table
-createQuranTable()
+createDatabase()
 
 // execute adding aya and translate to database
-getTableRowsAmount(ayaProcess, addAyaToDatabase)
+getTableRowsAmount()
 
