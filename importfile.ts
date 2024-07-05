@@ -47,7 +47,7 @@ function createDatabaseDirectory() {
 function createDatabaseFile() {   
     // create .db file
     if (!isDatabaseFileCreated){
-        fs.writeFile(path.join(__dirname+'/database', '', 'quran.db'), '', {}, (err : any) => {
+        fs.writeFileSync(path.join(__dirname+'/database', '', 'quran.db'), '', {}, (err : any) => {
             if(err){
                 console.log(err)
             } else{
@@ -57,31 +57,36 @@ function createDatabaseFile() {
     }
 }
 
-function createDatabase(){
-    //check if database directory has been created
-    isDatabaseFolderCreated = fs.existsSync(path.join(__dirname, 'database'))
-
-    //check if database file has been created
-    isDatabaseFileCreated = fs.existsSync(path.join(__dirname+'/database', 'quran.db'))
-
-    // create directory if it doesn't exist
-    createDatabaseDirectory()
-    
-    // create .db file if it doesn't exist
-    createDatabaseFile()
-
-    // execute quran table
-    createQuranTable()
-}
-
 // create quran table
 function createQuranTable(){
+    // createDatabase()
     sql = `CREATE TABLE IF NOT EXISTS quran 
       (id INTEGER NOT NULL PRIMARY KEY, 
       surah_number,
       aya_number,
       text)`
     database.run(sql)
+    console.log('createQuranTable is working ...')
+}
+
+function createDatabase(){
+    return new Promise((resolve, reject) => {
+        //check if database directory has been created
+        isDatabaseFolderCreated = fs.existsSync(path.join(__dirname, 'database'))
+
+        //check if database file has been created
+        isDatabaseFileCreated = fs.existsSync(path.join(__dirname+'/database', 'quran.db'))
+
+        // create directory if it doesn't exist
+        createDatabaseDirectory()
+
+        // create .db file if it doesn't exist
+        createDatabaseFile()
+
+        resolve(isDatabaseFileCreated)
+    })
+
+
 }
 
 function ayaProcess(){
@@ -158,9 +163,21 @@ function getTableRowsAmount ()  {
         })
     }
 
+
+
 // execute creating database
-createDatabase()
+createDatabase().then((isDatabaseFileCreated) =>{
+    if(isDatabaseFileCreated){
+        console.log('quran table has been created!')
+        createQuranTable()
+    } else {
+        createQuranTable()
+    }
+})
+
+
+// createQuranTable()
 
 // execute adding aya and translate to database
-getTableRowsAmount()
+// getTableRowsAmount()
 
