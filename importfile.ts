@@ -5,28 +5,123 @@ import sqlite3 from 'sqlite3';
 let ayaTextArray: string[] = [];
 let ayaNumberArray: (string | number)[] = [];
 let surahNumberArray: (string | number)[] = [];
-let translateEnYusufali: string[] = [];
-let translateFaFooladvand: string[] = [];
-let translateFaMakarem: string[] = [];
+let translationArray: string[] = [];
+let surahNameArray: string[] = [];
+let translatorsNameArray: string[] = [];
 let sql: string = '';
-let quranDatabaseRowsAmount: number = 0;
-let allowToExecute: boolean = false;
+let tableRowsAmount: number = 0;
+let allowToExecuteQuranTable: boolean = false;
+let allowToExecuteTranslationTable: boolean = false;
+let allowToExecuteTranslatorTable: boolean = false;
+let allowToExecuteSuraTable: boolean = false;
+const tablesLimit : number[] = [6230, 18690, 110, 2];
+const translatorsId : number[] = []
 const rawTextAddressArray: string[] = [
     './raw/quran_text/quran-simple.txt',
     './raw/quran_translations/en.yusufali.txt',
     './raw/quran_translations/fa.fooladvand.txt',
-    './raw/quran_translations/fa.makarem.txt'
-];
+    './raw/quran_translations/fa.makarem.txt',
+    './raw/lists/all_sura_list.txt',
+    './raw/lists/all_translators_list.txt',
 
+];
 let isDatabaseFolderCreated: boolean = false;
 let isDatabaseFileCreated: boolean = false;
-
 const databasePath = path.join(__dirname, 'database', 'quran.db');
 
-function createDatabaseDirectory() {
+interface tableColumnsType{
+    columnName : string,
+    columnType : string
+}
+
+const quranTableAssets :{tableName : string, tableColumns: tableColumnsType[] } = {
+    tableName: 'quran',
+    tableColumns :[
+        {
+            "columnName" : 'id',
+            "columnType" : 'INTEGER NOT NULL PRIMARY KEY'
+        },
+        {
+            "columnName" : 'surah_number',
+            "columnType" : 'INTEGER'
+        },
+        {
+            "columnName" : 'aya_number',
+            "columnType" : 'INTEGER'
+        },
+        {
+            "columnName" : 'text',
+            "columnType" : 'TEXT'
+        },
+    ]
+}
+
+const translatorsTableAssets :{tableName : string, tableColumns: tableColumnsType[] } = {
+    tableName: 'translators',
+    tableColumns :[
+        {
+            "columnName" : 'id',
+            "columnType" : 'INTEGER NOT NULL PRIMARY KEY'
+        },
+        {
+            "columnName" : 'translator',
+            "columnType" : 'TEXT'
+        },
+    ]
+}
+
+const translationTableAssets :{tableName : string, tableColumns: tableColumnsType[] } = {
+    tableName: 'translation',
+    tableColumns :[
+        {
+            "columnName" : 'id',
+            "columnType" : 'INTEGER NOT NULL PRIMARY KEY'
+        },
+        {
+            "columnName" : 'surah_number',
+            "columnType" : 'INTEGER'
+        },
+        {
+            "columnName" : 'aya_number',
+            "columnType" : 'INTEGER'
+        },
+        {
+            "columnName" : 'translator_id',
+            "columnType" : 'INTEGER'
+        },
+        {
+            "columnName" : 'text',
+            "columnType" : 'TEXT'
+        },
+    ]
+}
+
+const suraTableAssets :{tableName : string, tableColumns: tableColumnsType[] } = {
+    tableName: 'suras',
+    tableColumns :[
+        {
+            "columnName" : 'id',
+            "columnType" : 'INTEGER NOT NULL PRIMARY KEY'
+        },
+        {
+            "columnName" : 'sura',
+            "columnType" : 'TEXT'
+        },
+    ]
+}
+
+function createDatabase() {
+    //check if database directory has been created
+    isDatabaseFolderCreated = fs.existsSync(path.join(__dirname, 'database'))
+
+    //check if database file has been created
+    isDatabaseFileCreated = fs.existsSync(path.join(__dirname+'/database', 'quran.db'))
+
+    // createDatabaseDirectory
     if (!isDatabaseFolderCreated) {
         fs.mkdir(path.join(__dirname, 'database'), { recursive: true }, (err: any) => {
             if (err) {
+                console.log('Error in creating folder')
                 console.error(err);
             } else {
                 console.log('Database folder created ...');
@@ -43,6 +138,7 @@ function createDatabaseFile() {
     if (!isDatabaseFileCreated) {
         fs.writeFile(databasePath, '', (err: any) => {
             if (err) {
+                console.log('Error in creating folder: ')
                 console.error(err);
             } else {
                 console.log('quran.db created ...');
@@ -58,88 +154,213 @@ function createDatabaseFile() {
 function connectToDatabase() {
     const database = new sqlite3.Database(databasePath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err: any) => {
         if (err) {
-            console.error('Error opening database:', err.message);
+            console.error('Error in opening database:', err.message);
         } else {
             console.log('Connected to the database.');
-            createQuranTable(database);
+            createTable(database, allowToExecuteQuranTable, ayaTextArray, quranTableAssets, tablesLimit[0]);
+            createTable(database, allowToExecuteTranslationTable, translationArray, translationTableAssets, tablesLimit[1]);
+            createTable(database,  allowToExecuteSuraTable, surahNameArray, suraTableAssets, tablesLimit[2]);
+            createTable(database, allowToExecuteTranslatorTable, translatorsNameArray, translatorsTableAssets, tablesLimit[3]);
         }
     });
 }
 
-function createQuranTable(database: sqlite3.Database) {
-    sql = `CREATE TABLE IF NOT EXISTS quran 
-        (id INTEGER NOT NULL PRIMARY KEY, 
-        surah_number INTEGER,
-        aya_number INTEGER,
-        text TEXT)`;
+function createTable(database: sqlite3.Database,
+                     allowToExecute : boolean,
+                     textArray : string[],
+                     tableAssets: {tableName : string, tableColumns: tableColumnsType[]},
+                     tablesLimit: number
+) {
+    let firstHalfOfSql: string = `CREATE TABLE IF NOT EXISTS ${tableAssets.tableName}(`;
+    // -> we can do this:
+    // sql += `CREATE TABLE IF NOT EXISTS ${tableAssets.tableName}(`;
+    // -> we don't need secondHalfOfSql
+    let secondHalfOfSql : string = ``;
+    for (let i :number = 0; i < tableAssets.tableColumns.length; i++) {
+        secondHalfOfSql += `${tableAssets.tableColumns[i].columnName} ${tableAssets.tableColumns[i].columnType}`;
+        // sql += `${tableAssets.tableColumns[i].columnName} ${tableAssets.tableColumns[i].columnType}`;
+        if (i < tableAssets.tableColumns.length-1) {
+            secondHalfOfSql += `,`
+            // sql += `,`
+        }
+    }
+    // sql += ')'
+    // -> we don't need this line
+    sql = firstHalfOfSql + secondHalfOfSql + ')';
+    // console.log(`sql = ${sql}`)
     database.run(sql, (err: any) => {
         if (err) {
-            console.error('Error creating table:', err.message);
+            console.error('Error in creating table:', err.message);
+        }
+        // console.log(`${tableAssets.tableName} created ...`)
+        getTableRowsAmount(database, allowToExecute, textArray, tableAssets, tablesLimit);
+    });
+}
+
+function getTableRowsAmount(database: sqlite3.Database,
+                            allowToExecute : boolean,
+                            textArray : string[],
+                            tableAssets: {tableName : string, tableColumns: tableColumnsType[]},
+                            tablesLimit: number) {
+    sql = `SELECT COUNT(*) FROM ${tableAssets.tableName}`
+    database.all(sql, [], (err: any, result: any) => {
+        if (err) {
+            console.log(`Error in getting table rows amount of ${tableAssets.tableName} table: `)
+            console.error(err);
         } else {
-            getTableRowsAmount(database);
+            tableRowsAmount = result[0]['COUNT(*)'];
+            allowToExecute = tableRowsAmount < tablesLimit-1;
+            // console.log(`tableRowsAmount of ${tableAssets.tableName} table is ${tableRowsAmount} and limit is ${tablesLimit}`);
+            // console.log(`allowToExecute of ${tableAssets.tableName} table is ${allowToExecute}`);
+            // console.log('------------------------------------------------------')
+
+            if (textArray.length < tablesLimit) {
+            ayaProcess(allowToExecute);
+            }
+///////////////////////////////////// ok until here //////////////////////////////////////////
+            addAyaToDatabase(database, allowToExecute, textArray, tableAssets );
         }
     });
 }
 
-function ayaProcess() {
+function ayaProcess(allowToExecute : boolean) {
     if (allowToExecute) {
-        for (let i = 0; i < rawTextAddressArray.length; i++) {
+        for (let i:number = 0; i < rawTextAddressArray.length; i++) {
             let rawText = fs.readFileSync(rawTextAddressArray[i], 'utf-8');
 
             rawText.split(/\r?\n/).forEach((line: string) => {
                 let columns = line.split('|');
-                surahNumberArray.push(columns[0]);
-                ayaNumberArray.push(columns[1]);
 
                 switch (rawTextAddressArray[i]) {
                     case './raw/quran_text/quran-simple.txt':
+                        surahNumberArray.push(columns[0]);
+                        ayaNumberArray.push(columns[1]);
                         ayaTextArray.push(columns[2]);
                         break;
                     case './raw/quran_translations/en.yusufali.txt':
-                        translateEnYusufali.push(columns[2]);
+                        // translateEnYusufali.push(columns[0]);
+                        translationArray.push(columns[0]);
+                        translatorsId.push(1)
                         break;
                     case './raw/quran_translations/fa.fooladvand.txt':
-                        translateFaFooladvand.push(columns[2]);
+                        // translateFaFooladvand.push(columns[0]);
+                        translationArray.push(columns[0]);
+                        translatorsId.push(2)
                         break;
                     case './raw/quran_translations/fa.makarem.txt':
-                        translateFaMakarem.push(columns[2]);
+                        // translateFaMakarem.push(columns[0]);
+                        translationArray.push(columns[0]);
+                        translatorsId.push(3)
+                        break;
+                    case './raw/lists/all_sura_list.txt':
+                        surahNameArray.push(columns[1]);
+                        break;
+                    case './raw/lists/all_translators_list.txt':
+                        translatorsNameArray.push(columns[1]);
                         break;
                 }
             });
         }
+        // console.log('arrays length are :')
+        // console.log(`ayaTextArray -> ${ayaTextArray.length}`);
+        // console.log(`ayaNumberArray -> ${ayaNumberArray.length}`);
+        // console.log(`surahNumberArray -> ${surahNumberArray.length}`);
+        // console.log(`translationArray -> ${translationArray.length}`);
+        // console.log(`surahNameArray -> ${surahNameArray.length}`);
+        // console.log(`translatorsNameArray -> ${translatorsNameArray.length}`);
+        // console.log('=======================================================')
     }
 }
 
-function addAyaToDatabase(database: sqlite3.Database) {
+function addAyaToDatabase(database: sqlite3.Database,
+                          allowToExecute : boolean,
+                          textArray : string[],
+                          tableAssets: {tableName : string, tableColumns: tableColumnsType[]}) {
     if (allowToExecute) {
-        for (let i = 0; i < ayaTextArray.length; i++) {
-            sql = `INSERT INTO quran 
-            (id, 
-            surah_number,
-            aya_number,
-            text)
-            VALUES (?, ?, ?, ?)`;
-            database.run(sql, [i, surahNumberArray[i], ayaNumberArray[i], ayaTextArray[i]], (err: any) => {
-                if (err) {
-                    console.error(err.message);
+        for (let i :number = 0; i < textArray.length; i++) {
+            sql = `INSERT INTO ${tableAssets.tableName} (`
+            for (let i :number = 0; i < tableAssets.tableColumns.length; i++) {
+                sql += `${tableAssets.tableColumns[i].columnName}`;
+                if (i < tableAssets.tableColumns.length-1) {
+                    sql += `,`
                 }
-            });
+            }
+            sql += ')';
+            sql += 'VALUES (';
+            for (let i :number = 0; i < tableAssets.tableColumns.length; i++) {
+                sql += `?`;
+                if (i < tableAssets.tableColumns.length-1) {
+                    sql += `,`
+                }
+            }
+            sql += ')';
+
+            // sql = `INSERT INTO ${tableName}
+            // (id,
+            // surah_number,
+            // aya_number,
+            // text)
+            // VALUES (?, ?, ?, ?)`;
+
+            // console.log(`sql for ${tableAssets.tableName} table is ${sql}`);
+            // console.log('_______________________________')
+
+            let id : number = i + 1;
+            switch (tableAssets.tableName){
+                case 'quran' :
+                    database.run(sql, [id, surahNumberArray[i], ayaNumberArray[i], textArray[i]], (err: any) => {
+                        if (err) {
+                            console.log('Error in adding to database: ')
+                            console.error(err.message);
+                        }
+                    });
+                    break;
+                case 'translators' :
+                    database.run(sql, [id, textArray[i]], (err: any) => {
+                        if (err) {
+                            console.log('Error in adding to database: ')
+                            console.error(err.message);
+                        }
+                    });
+                    break;
+                case 'suras' :
+                    database.run(sql, [id, textArray[i]], (err: any) => {
+                        if (err) {
+                            console.log('Error in adding to database: ')
+                            console.error(err.message);
+                        }
+                    });
+                    break;
+                case 'translation' :
+                    const quranAyas : number = 6236
+                    if (i <= quranAyas) {
+                        database.run(sql, [id, surahNumberArray[i], ayaNumberArray[i], translatorsId[i], textArray[i]], (err: any) => {
+                            if (err) {
+                                console.log('Error in adding to database: ')
+                                console.error(err.message);
+                            }
+                        });
+                    }
+                    else if (i > quranAyas && i <= quranAyas * 2) {
+                        database.run(sql, [id, surahNumberArray[i - quranAyas], ayaNumberArray[i - quranAyas], translatorsId[i], textArray[i]], (err: any) => {
+                            if (err) {
+                                console.log('Error in adding to database: ')
+                                console.error(err.message);
+                            }
+                        });
+                    }
+                    else  {
+                        database.run(sql, [id, surahNumberArray[i - quranAyas * 2], ayaNumberArray[i - quranAyas * 2], translatorsId[i], textArray[i]], (err: any) => {
+                            if (err) {
+                                console.log('Error in adding to database: ')
+                                console.error(err.message);
+                            }
+                        });
+                    }
+                    break;
+            }
         }
     }
 }
 
-function getTableRowsAmount(database: sqlite3.Database) {
-    sql = 'SELECT COUNT(*) FROM quran';
-    database.all(sql, [], (err: any, result: any) => {
-        if (err) {
-            console.error(err);
-        } else {
-            quranDatabaseRowsAmount = result[0]['COUNT(*)'];
-            allowToExecute = quranDatabaseRowsAmount < 6230;
-            ayaProcess();
-            addAyaToDatabase(database);
-        }
-    });
-}
-
-createDatabaseDirectory();
+createDatabase();
