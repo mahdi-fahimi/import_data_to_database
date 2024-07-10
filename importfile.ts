@@ -2,6 +2,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import sqlite3 from 'sqlite3';
 
+interface tableColumnsType{
+    columnName : string,
+    columnType : string
+}
+
 let ayaTextArray: string[] = [];
 let ayaNumberArray: (string | number)[] = [];
 let surahNumberArray: (string | number)[] = [];
@@ -28,12 +33,6 @@ const rawTextAddressArray: string[] = [
 let isDatabaseFolderCreated: boolean = false;
 let isDatabaseFileCreated: boolean = false;
 const databasePath = path.join(__dirname, 'database', 'quran.db');
-
-interface tableColumnsType{
-    columnName : string,
-    columnType : string
-}
-
 const quranTableAssets :{tableName : string, tableColumns: tableColumnsType[] } = {
     tableName: 'quran',
     tableColumns :[
@@ -55,7 +54,6 @@ const quranTableAssets :{tableName : string, tableColumns: tableColumnsType[] } 
         },
     ]
 }
-
 const translatorsTableAssets :{tableName : string, tableColumns: tableColumnsType[] } = {
     tableName: 'translators',
     tableColumns :[
@@ -69,7 +67,6 @@ const translatorsTableAssets :{tableName : string, tableColumns: tableColumnsTyp
         },
     ]
 }
-
 const translationTableAssets :{tableName : string, tableColumns: tableColumnsType[] } = {
     tableName: 'translation',
     tableColumns :[
@@ -95,7 +92,6 @@ const translationTableAssets :{tableName : string, tableColumns: tableColumnsTyp
         },
     ]
 }
-
 const suraTableAssets :{tableName : string, tableColumns: tableColumnsType[] } = {
     tableName: 'suras',
     tableColumns :[
@@ -172,27 +168,18 @@ function createTable(database: sqlite3.Database,
                      tablesLimit: number
 ) {
     let firstHalfOfSql: string = `CREATE TABLE IF NOT EXISTS ${tableAssets.tableName}(`;
-    // -> we can do this:
-    // sql += `CREATE TABLE IF NOT EXISTS ${tableAssets.tableName}(`;
-    // -> we don't need secondHalfOfSql
     let secondHalfOfSql : string = ``;
     for (let i :number = 0; i < tableAssets.tableColumns.length; i++) {
         secondHalfOfSql += `${tableAssets.tableColumns[i].columnName} ${tableAssets.tableColumns[i].columnType}`;
-        // sql += `${tableAssets.tableColumns[i].columnName} ${tableAssets.tableColumns[i].columnType}`;
         if (i < tableAssets.tableColumns.length-1) {
             secondHalfOfSql += `,`
-            // sql += `,`
         }
     }
-    // sql += ')'
-    // -> we don't need this line
     sql = firstHalfOfSql + secondHalfOfSql + ')';
-    // console.log(`sql = ${sql}`)
     database.run(sql, (err: any) => {
         if (err) {
             console.error('Error in creating table:', err.message);
         }
-        // console.log(`${tableAssets.tableName} created ...`)
         getTableRowsAmount(database, allowToExecute, textArray, tableAssets, tablesLimit);
     });
 }
@@ -210,14 +197,10 @@ function getTableRowsAmount(database: sqlite3.Database,
         } else {
             tableRowsAmount = result[0]['COUNT(*)'];
             allowToExecute = tableRowsAmount < tablesLimit-1;
-            // console.log(`tableRowsAmount of ${tableAssets.tableName} table is ${tableRowsAmount} and limit is ${tablesLimit}`);
-            // console.log(`allowToExecute of ${tableAssets.tableName} table is ${allowToExecute}`);
-            // console.log('------------------------------------------------------')
 
             if (textArray.length < tablesLimit) {
             ayaProcess(allowToExecute);
             }
-///////////////////////////////////// ok until here //////////////////////////////////////////
             addAyaToDatabase(database, allowToExecute, textArray, tableAssets );
         }
     });
@@ -238,17 +221,14 @@ function ayaProcess(allowToExecute : boolean) {
                         ayaTextArray.push(columns[2]);
                         break;
                     case './raw/quran_translations/en.yusufali.txt':
-                        // translateEnYusufali.push(columns[0]);
                         translationArray.push(columns[0]);
                         translatorsId.push(1)
                         break;
                     case './raw/quran_translations/fa.fooladvand.txt':
-                        // translateFaFooladvand.push(columns[0]);
                         translationArray.push(columns[0]);
                         translatorsId.push(2)
                         break;
                     case './raw/quran_translations/fa.makarem.txt':
-                        // translateFaMakarem.push(columns[0]);
                         translationArray.push(columns[0]);
                         translatorsId.push(3)
                         break;
@@ -261,14 +241,6 @@ function ayaProcess(allowToExecute : boolean) {
                 }
             });
         }
-        // console.log('arrays length are :')
-        // console.log(`ayaTextArray -> ${ayaTextArray.length}`);
-        // console.log(`ayaNumberArray -> ${ayaNumberArray.length}`);
-        // console.log(`surahNumberArray -> ${surahNumberArray.length}`);
-        // console.log(`translationArray -> ${translationArray.length}`);
-        // console.log(`surahNameArray -> ${surahNameArray.length}`);
-        // console.log(`translatorsNameArray -> ${translatorsNameArray.length}`);
-        // console.log('=======================================================')
     }
 }
 
@@ -294,16 +266,6 @@ function addAyaToDatabase(database: sqlite3.Database,
                 }
             }
             sql += ')';
-
-            // sql = `INSERT INTO ${tableName}
-            // (id,
-            // surah_number,
-            // aya_number,
-            // text)
-            // VALUES (?, ?, ?, ?)`;
-
-            // console.log(`sql for ${tableAssets.tableName} table is ${sql}`);
-            // console.log('_______________________________')
 
             let id : number = i + 1;
             switch (tableAssets.tableName){
